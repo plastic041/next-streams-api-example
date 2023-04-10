@@ -1,38 +1,55 @@
-This is a [Next.js](https://nextjs.org/) project bootstrapped with [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app).
+# Next.js streams API example
 
-## Getting Started
+Streams API website made with Next.js.
 
-First, run the development server:
+![Streaming API preview](./public/screenshot.gif)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
+```typescript
+// src/pages/api/stream.ts
+export default function handler(req, res) {
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+
+  res.write("Starting stream...");
+  res.write("Send data 1.");
+  res.write("Send data 2.");
+  res.write("Send data 3.");
+  res.write("End stream.");
+
+  res.end();
+}
+
+// src/pages/index.tsx
+async function readStream() {
+  const response = await fetch("/api/stream");
+
+  const reader = response.body.pipeThrough(new TextDecoderStream()).getReader();
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) {
+      break;
+    }
+    console.log(value);
+  }
+}
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Send the response as stream
 
-You can start editing the page by modifying `pages/index.tsx`. The page auto-updates as you edit the file.
+`res.write` sends a chunk of response body[^1]. Use it multiple times to send response as stream.
 
-[API routes](https://nextjs.org/docs/api-routes/introduction) can be accessed on [http://localhost:3000/api/hello](http://localhost:3000/api/hello). This endpoint can be edited in `pages/api/hello.ts`.
+### Read the reponse as stream
 
-The `pages/api` directory is mapped to `/api/*`. Files in this directory are treated as [API routes](https://nextjs.org/docs/api-routes/introduction) instead of React pages.
+`response.body.getReader().read()` returns a Promise.
 
-This project uses [`next/font`](https://nextjs.org/docs/basic-features/font-optimization) to automatically optimize and load Inter, a custom Google Font.
+- If a chunk is available, Promise will be fulfilled with `{ done: false, value: chunk }`.
+- If the stream becomes closed, Promise will be fulfilled with `{ done: true, value: undefined }`.
+- If the stream becomes erroed, Promise will be rejected with the error[^2].
 
-## Learn More
+Use `response.body.pipeThrough(new TextDecoderStream())` to decode `Uint8Array` into `string`[^3].
 
-To learn more about Next.js, take a look at the following resources:
+Asynchronously iterating over `response.body: ReadableStream` is currently only supported in Firefox[^4](2023-04).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/deployment) for more details.
+[^1]: https://nodejs.org/api/http.html#responsewritechunk-encoding-callback
+[^2]: https://developer.mozilla.org/en-US/docs/Web/API/ReadableStreamDefaultReader/read#return_value
+[^3]: https://developer.chrome.com/articles/fetch-streaming-requests
+[^4]: https://developer.mozilla.org/en-US/docs/Web/API/ReadableStream#browser_compatibility

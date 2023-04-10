@@ -10,8 +10,9 @@ export default function Home() {
       setIsReading(true);
       setResponseText("");
 
-      const reader = response.body.getReader();
-      const decoder = new TextDecoder("utf-8");
+      const reader = response.body
+        .pipeThrough(new TextDecoderStream())
+        .getReader();
       while (true) {
         const { done, value } = await reader.read();
         if (done) {
@@ -19,8 +20,7 @@ export default function Home() {
 
           break;
         }
-        const text = decoder.decode(value);
-        setResponseText((prev) => `${prev}${text}`);
+        setResponseText((prev) => `${prev}${value}`);
       }
     }
   }
