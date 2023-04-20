@@ -1,4 +1,11 @@
 import { useState } from "react";
+import type { Data } from "~/pages/api/stream";
+
+function hasContent(
+  data: Data
+): data is Data & { choices: { delta: { content: string } }[] } {
+  return "content" in data.choices[0].delta;
+}
 
 export default function Home() {
   const [isReading, setIsReading] = useState(false);
@@ -20,7 +27,12 @@ export default function Home() {
 
           break;
         }
-        setResponseText((prev) => `${prev}${value}`);
+        const data: Data = JSON.parse(value);
+        if (hasContent(data)) {
+          setResponseText(
+            (prev) => `${prev}${data.choices[0].delta.content || ""}`
+          );
+        }
       }
     }
   }
